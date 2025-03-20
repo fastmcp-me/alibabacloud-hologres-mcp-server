@@ -90,5 +90,10 @@ Add the following configuration to the MCP client configuration file:
 
 * `hg_system:///query_log/application/{application_name}`: Get specific application's query logs
 
+* `hg_system:///{system_path}`: 
+  System paths include:
+  * missing_stats_tables - Shows the tables that are missing statistics.
+  * stat_activity - Shows the information of current running queries.
+
 ### Prompts
 None at this time

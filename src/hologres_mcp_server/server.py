@@ -48,14 +48,15 @@ async def list_resources() -> list[Resource]:
             name="All Schemas",
             description="List all schemas in Hologres database",
             mimeType="text/plain"
-        ),
-        Resource(
-            uri="hg_system:///missing_stats_tables",
-            name="Tables Missing Statistics",
-            description="List all tables that are missing statistics information",
-            mimeType="text/plain"
         )
     ]
+
+HOLO_SYSTEM_DESC = '''
+System information in Hologres, following are some common system_paths:
+
+'missing_stats_tables'    Shows the tables that are missing statistics.
+'stat_activity'    Shows the information of current running queries.
+'''
 
 @app.list_resource_templates()
 async def list_resource_templates() -> list[ResourceTemplate]:
@@ -95,6 +96,12 @@ async def list_resource_templates() -> list[ResourceTemplate]:
             uriTemplate="hg_system:///query_log/application/{application_name}",
             name="Application Query Log",
             description="Get query log history for a specific application",
+            mimeType="text/plain"
+        ),
+        ResourceTemplate(
+            uriTemplate="hg_system:///{system_path}",
+            name="System internal Information",
+            description=HOLO_SYSTEM_DESC,
             mimeType="text/plain"
         )
     ]
@@ -187,14 +194,10 @@ async def read_resource(uri: AnyUrl) -> str:
             path_parts = uri_str[13:].split('/')
             
             if path_parts[0] == "missing_stats_tables":
-                # List tables missing statistics
+                # Shows the tables that are missing statistics.
                 query = """
                     SELECT 
-                        schemaname,
-                        tablename,
-                        nattrs,
-                        tablekind,
-                        fdwname
+                        *
                     FROM hologres_statistic.hg_stats_missing
                     WHERE schemaname NOT IN ('pg_catalog', 'information_schema','hologres','hologres_statistic','hologres_streaming_mv')
                     ORDER BY schemaname, tablename;
@@ -204,10 +207,32 @@ async def read_resource(uri: AnyUrl) -> str:
                 if not rows:
                     return "No tables found with missing statistics"
                 
-                headers = ["Schema", "Table", "Num Attrs", "Table Kind", "FDW Name"]
-                result = ["\t".join(headers)]
+                columns = [desc[0] for desc in cursor.description]
+                result = ["\t".join(columns)]
                 for row in rows:
-                    result.append("\t".join(map(str, row)))
+                    formatted_row = [str(val) if val is not None else "NULL" for val in row]
+                    result.append("\t".join(formatted_row))
+                return "\n".join(result)
+
+            elif path_parts[0] == "stat_activity":
+                # Shows the information of current running queries.
+                query = """
+                    SELECT
+                        *
+                    FROM
+                        hg_stat_activity
+                    ORDER BY pid;
+                """
+                cursor.execute(query)
+                rows = cursor.fetchall()
+                if not rows:
+                    return "No queries found with current running status"
+                
+                columns = [desc[0] for desc in cursor.description]
+                result = ["\t".join(columns)]
+                for row in rows:
+                    formatted_row = [str(val) if val is not None else "NULL" for val in row]
+                    result.append("\t".join(formatted_row))
                 return "\n".join(result)
                 
             elif path_parts[0] == "query_log":
@@ -220,6 +245,7 @@ async def read_resource(uri: AnyUrl) -> str:
                         return "Invalid row limits format, must be an integer"
                     
                     query = f"SELECT * FROM hologres.hg_query_log ORDER BY query_start DESC LIMIT {row_limits}"
+                    cursor.execute(query)
                     
                 elif path_parts[1] == "user" and len(path_parts) == 3:
                     user_name = path_parts[2]
@@ -236,10 +262,7 @@ async def read_resource(uri: AnyUrl) -> str:
                     cursor.execute(query, (application_name,))
                 
                 else:
-                    raise ValueError(f"Invalid query log URI format: {uri_str}")
-                
-                if path_parts[1] == "latest":
-                    cursor.execute(query)
+                    raise ValueError(f"Invalid query log URI format: {uri_str}")                    
                 
                 rows = cursor.fetchall()
                 if not rows:
