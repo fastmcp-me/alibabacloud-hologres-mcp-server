@@ -75,8 +75,6 @@ Add the following configuration to the MCP client configuration file:
 #### Built-in Resources
 * `hologres:///schemas`: Get all schemas in the database
 
-* `hologres:///system_info/missing_stats_tables`: Retrieve tables lacking statistics
-
 #### Resource Templates
 * `hologres:///{schema}/tables`: List all tables in a schema
 
@@ -84,11 +82,16 @@ Add the following configuration to the MCP client configuration file:
 
 * `hologres:///{schema}/{table}/statistic`: Show collected table statistics
 
-* `hologres:///system_info/latest_query_log/{row_limits}`: Get recent query logs
+* `system:///query_log/latest/{row_limits}`: Get recent query logs
 
-* `hologres:///system_info/user_query_log/{user}`: Get specific user's query logs
+* `system:///query_log/user/{user_name}`: Get specific user's query logs
 
-* `hologres:///system_info/application_query_log/{application}`: Get specific application's query logs
+* `system:///query_log/application/{application_name}`: Get specific application's query logs
+
+* `system:///{system_path}`: 
+  System paths include:
+  * missing_stats_tables - Shows the tables that are missing statistics.
+  * stat_activity - Shows the information of current running queries.
 
 ### Prompts
 None at this time
