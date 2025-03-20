@@ -13,7 +13,7 @@ MCP server 配置
       "command": "uv",
       "args": [
         "--directory",
-        "/path/to/hologres-mcp-server",
+        "/path/to/alibabacloud-hologres-mcp-server",
         "run",
         "hologres-mcp-server"
       ],
