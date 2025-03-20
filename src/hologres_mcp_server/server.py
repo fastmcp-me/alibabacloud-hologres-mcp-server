@@ -81,25 +81,25 @@ async def list_resource_templates() -> list[ResourceTemplate]:
             mimeType="text/plain"
         ),
         ResourceTemplate(
-            uriTemplate="hg_system:///query_log/latest/{row_limits}",
+            uriTemplate="system:///query_log/latest/{row_limits}",
             name="Query Log History",
             description="Get recent query log history with specified number of rows",
             mimeType="text/plain"
         ),
         ResourceTemplate(
-            uriTemplate="hg_system:///query_log/user/{user_name}",
+            uriTemplate="system:///query_log/user/{user_name}",
             name="User Query Log",
             description="Get query log history for a specific user",
             mimeType="text/plain"
         ),
         ResourceTemplate(
-            uriTemplate="hg_system:///query_log/application/{application_name}",
+            uriTemplate="system:///query_log/application/{application_name}",
             name="Application Query Log",
             description="Get query log history for a specific application",
             mimeType="text/plain"
         ),
         ResourceTemplate(
-            uriTemplate="hg_system:///{system_path}",
+            uriTemplate="system:///{system_path}",
             name="System internal Information",
             description=HOLO_SYSTEM_DESC,
             mimeType="text/plain"
@@ -112,7 +112,7 @@ async def read_resource(uri: AnyUrl) -> str:
     config = get_db_config()
     uri_str = str(uri)
     
-    if not (uri_str.startswith("hologres:///") or uri_str.startswith("hg_system:///")):
+    if not (uri_str.startswith("hologres:///") or uri_str.startswith("system:///")):
         raise ValueError(f"Invalid URI scheme: {uri_str}")
     
     try:
@@ -189,9 +189,9 @@ async def read_resource(uri: AnyUrl) -> str:
                     result.append("\t".join(map(str, row)))
                 return "\n".join(result)
                 
-        # Handle hg_system:/// URIs
-        elif uri_str.startswith("hg_system:///"):
-            path_parts = uri_str[13:].split('/')
+        # Handle system:/// URIs
+        elif uri_str.startswith("system:///"):
+            path_parts = uri_str[10:].split('/')
             
             if path_parts[0] == "missing_stats_tables":
                 # Shows the tables that are missing statistics.
