@@ -19,6 +19,8 @@ logging.basicConfig(
 logger = logging.getLogger("hologres-mcp-server")
 """
 
+SERVER_VERSION = "0.1.3"
+
 def get_db_config():
     """Get database configuration from environment variables."""
     config = {
@@ -26,7 +28,8 @@ def get_db_config():
         "port": os.getenv("HOLOGRES_PORT", "5432"),
         "user": os.getenv("HOLOGRES_USER"),
         "password": os.getenv("HOLOGRES_PASSWORD"),
-        "database": os.getenv("HOLOGRES_DATABASE")
+        "database": os.getenv("HOLOGRES_DATABASE"),
+        "application_name": f"hologres-mcp-server-{SERVER_VERSION}"
     }
     if not all([config["user"], config["password"], config["database"]]):
         # logger.error("Missing required database configuration. Please check environment variables:")
@@ -56,6 +59,9 @@ System information in Hologres, following are some common system_paths:
 
 'missing_stats_tables'    Shows the tables that are missing statistics.
 'stat_activity'    Shows the information of current running queries.
+'query_log/latest/<row_limits>'    Get recent query log history with specified number of rows.
+'query_log/user/<user_name>/<row_limits>'    Get query log history for a specific user with row limits.
+'query_log/application/<application_name>/<row_limits>'    Get query log history for a specific application with row limits.
 '''
 
 @app.list_resource_templates()
@@ -81,25 +87,7 @@ async def list_resource_templates() -> list[ResourceTemplate]:
             mimeType="text/plain"
         ),
         ResourceTemplate(
-            uriTemplate="system:///query_log/latest/{row_limits}",
-            name="Query Log History",
-            description="Get recent query log history with specified number of rows",
-            mimeType="text/plain"
-        ),
-        ResourceTemplate(
-            uriTemplate="system:///query_log/user/{user_name}",
-            name="User Query Log",
-            description="Get query log history for a specific user",
-            mimeType="text/plain"
-        ),
-        ResourceTemplate(
-            uriTemplate="system:///query_log/application/{application_name}",
-            name="Application Query Log",
-            description="Get query log history for a specific application",
-            mimeType="text/plain"
-        ),
-        ResourceTemplate(
-            uriTemplate="system:///{system_path}",
+            uriTemplate="system:///{+system_path}",
             name="System internal Information",
             description=HOLO_SYSTEM_DESC,
             mimeType="text/plain"
@@ -241,28 +229,42 @@ async def read_resource(uri: AnyUrl) -> str:
                         row_limits = int(path_parts[2])
                         if row_limits <= 0:
                             return "Row limits must be a positive integer"
-                    except ValueError:
-                        return "Invalid row limits format, must be an integer"
+                        except ValueError:
+                            return "Invalid row limits format, must be an integer"
+                        
+                        query = f"SELECT * FROM hologres.hg_query_log ORDER BY query_start DESC LIMIT {row_limits}"
+                        cursor.execute(query)
+                        
+                    elif path_parts[1] == "user" and len(path_parts) == 4:
+                        user_name = path_parts[2]
+                        if not user_name:
+                            return "Username cannot be empty"
+                        try:
+                            row_limits = int(path_parts[3])
+                            if row_limits <= 0:
+                                return "Row limits must be a positive integer"
+                        except ValueError:
+                            return "Invalid row limits format, must be an integer"
+                            
+                        query = "SELECT * FROM hologres.hg_query_log WHERE usename = %s ORDER BY query_start DESC LIMIT %s"
+                        cursor.execute(query, (user_name, row_limits))
+                        
+                    elif path_parts[1] == "application" and len(path_parts) == 4:
+                        application_name = path_parts[2]
+                        if not application_name:
+                            return "Application name cannot be empty"
+                        try:
+                            row_limits = int(path_parts[3])
+                            if row_limits <= 0:
+                                return "Row limits must be a positive integer"
+                        except ValueError:
+                            return "Invalid row limits format, must be an integer"
+                            
+                        query = "SELECT * FROM hologres.hg_query_log WHERE application_name = %s ORDER BY query_start DESC LIMIT %s"
+                        cursor.execute(query, (application_name, row_limits))
                     
-                    query = f"SELECT * FROM hologres.hg_query_log ORDER BY query_start DESC LIMIT {row_limits}"
-                    cursor.execute(query)
-                    
-                elif path_parts[1] == "user" and len(path_parts) == 3:
-                    user_name = path_parts[2]
-                    if not user_name:
-                        return "Username cannot be empty"
-                    query = "SELECT * FROM hologres.hg_query_log WHERE usename = %s ORDER BY query_start DESC"
-                    cursor.execute(query, (user_name,))
-                    
-                elif path_parts[1] == "application" and len(path_parts) == 3:
-                    application_name = path_parts[2]
-                    if not application_name:
-                        return "Application name cannot be empty"
-                    query = "SELECT * FROM hologres.hg_query_log WHERE application_name = %s ORDER BY query_start DESC"
-                    cursor.execute(query, (application_name,))
-                
-                else:
-                    raise ValueError(f"Invalid query log URI format: {uri_str}")                    
+                    else:
+                        raise ValueError(f"Invalid query log URI format: {uri_str}")                    
                 
                 rows = cursor.fetchall()
                 if not rows:
