@@ -1,14 +1,16 @@
 [project]
 name = "hologres-mcp-server"
-version = "0.1.4"
+version = "0.1.7"
 description = "A MCP Server for Hologres"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
  "httpx>=0.28.1",
  "mcp>=1.4.1",
  "python-dotenv>=1.0.1",
- "psycopg2>=2.9.5",
+ "psycopg>=3.1.0",
+ "psycopg-binary>=3.1.0",
+ "pglast>=7.5",
 ]
 [[project.authors]]
 name = "TimothyDing"
